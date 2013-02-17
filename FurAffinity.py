@@ -83,6 +83,18 @@ class FurAffinity:
 		self.__logged_in = False
 		self.__username = None
 
+	class submission:
+		def __init__(self, sid, thumb, full, title, keywords, rating):
+			self.sid      = sid
+			self.thumb    = thumb
+			self.full     = full
+			self.title    = title
+			self.keywords = keywords
+			self.rating   = rating
+
+		def __repr__(self):
+			return "(%d) '%s' thn %s act %s\n\t%s\n\t%s" % (self.sid, self.title, self.thumb, self.full, self.keywords, self.rating)
+
 	def get_submission_list(self, user=None, zone='gallery', page=1, perpage=60, limit=1):
 		"""
 		Get a list of submissions
@@ -109,11 +121,30 @@ class FurAffinity:
 		else:
 			n = -1
 
+		download_re = re.compile(r'<a href="([^"]*)"> Download </a>')
+		title_re = re.compile(r'<b>([^<]*)</b> - by ')
+		keyword_re = re.compile(r'<a href="/search/@keywords ([^"]*)">')
+		rating_re = re.compile(r'<img alt="[^ ]* rating" src="/img/labels/([^\.]*?)\.gif" />')
+
 		pagenum = page
 		while True:
 			r = requests.get("%s/gallery/%s/%d/" % (FA_URL, user, pagenum), data={'perpage':perpage})
-			t_ids = [int(i) for i in re.findall(r'<b id="sid_([0-9]*)" class="r-[a-z]* t-image">', r.content)]
-			ids.extend(t_ids)
+			for i in re.findall(r'<b id="sid_([0-9]*)" class="r-[a-z]* t-image"><u><s><a href="/view/[0-9]*/"><img alt="" src="([^"]*)"/>', r.content):
+				s_id = int(i[0])
+				thn_url = "http:" + i[1]
+
+				# request the submission itself
+				s = requests.get('%s/full/%s' % (FA_URL, i[0]))
+
+				# parse the submission itself
+				fullimg_url = "http:" + download_re.search(s.content).group(1) # TODO: HTML unescape
+				title       = title_re.search(s.content).group(1)              # TODO: HTML Unescape
+				keywords    = keyword_re.findall(s.content)                    # TODO: HTML unescape
+				rating      = rating_re.search(s.content).group(1)             # TODO: HTML unescape
+
+				sub = self.submission(sid=s_id, thumb=thn_url, full=fullimg_url, title=title, keywords=keywords, rating=rating)
+				ids.append(sub)
+
 			n = n - 1
 			pagenum = pagenum + 1
 			if (n <= 0 and limit is not None) or len(t_ids) == 0:
