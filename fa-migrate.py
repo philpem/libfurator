@@ -16,19 +16,21 @@ FA_PASS_NEW="YOUR_NEW_ACCT_PASSWORD"
 
 DEBUG_REQS = False
 
+USER_AGENT='Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'
+
 def requ(url, params = {}):
 	if DEBUG_REQS:
 		print "\tREQUEST: %s "%url,params
 	# generate urlencoded request
 	data = urllib.urlencode(params)
 	# fake a user agent (furaffinity doesn't seem to mind, but it's better to be safe than sorry)
-	txdata = {'User-agent' : 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
+	txdata = {'User-agent' : USER_AGENT}
 	# make the request
 	if url == 'login':
 		FA_HOST="https://www.furaffinity.net"
 	else:
 		FA_HOST="http://www.furaffinity.net"
-	req = urllib2.Request("%s/%s" % (FA_HOST, url), data,  {'User-agent' : 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'})
+	req = urllib2.Request("%s/%s" % (FA_HOST, url), data,  {'User-agent' : USER_AGENT})
 	resp = urllib2.urlopen(req)
 	# return the page data
 	return resp.read()
