@@ -14,19 +14,22 @@ class FurAffinity:
 		"""
 		Default constructor
 
-		useragent --> User Agent (optional, defaults to IE5.5)
-		pickling  --> True to enable caching of cookies
+		useragent     --> User Agent (optional, defaults to IE5.5)
+		save_cookies  --> True to enable caching of cookies
 		"""
-		# load cookies if they're present
+		self.session = requests.Session()
+		if useragent is None:
+			self.session.headers.update({'User-Agent': 'Libfurator/0.1 (http://www.bitbucket.org/philpem/libfurator)'})
+		else:
+			self.session.headers.update({'User-Agent': useragent})
+
+		self.save_cookies = save_cookies
 		if save_cookies:
 			try:
-				self.cookiejar = pickle.load(open("furaffinity_cookies.p", "rb"))
-			except:
-				self.cookiejar = dict()
-			self.save_cookies = True
-		else:
-			self.save_cookies = False
-			self.cookiejar = False
+				self.session.cookies = pickle.load(open("furaffinity_cookies.p", "rb"))
+			except IOError:
+				# If the file doesn't exist, we should use the existing cookie jar
+				pass
 
 		if useragent is not None:
 			self.useragent = 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'
@@ -39,17 +42,17 @@ class FurAffinity:
 	def __del__(self):
 		# save cookies
 		if self.save_cookies:
-			pickle.dump(self.cookiejar, open("cookies.p", "wb"))
+			pickle.dump(self.session.cookies, open("furaffinity_cookies.p", "wb"))
 
-	def __request(self, url, data=None):
+	def __request(self, url, data=None, files=None):
 		# TODO - Add rate limiting here
-		r = requests.get(
-				self.FA_URL + url,
-				cookies=self.cookiejar,
-				data=data,
-				headers={'User-Agent': self.useragent}
-				)
-		self.cookiejar.update(r.cookies)
+		if data is None:
+			r = self.session.get(self.FA_URL + url)
+		else:
+			if files is None:
+				r = self.session.post(self.FA_URL + url, data=data)
+			else:
+				r = self.session.post(self.FA_URL + url, data=data, files=files)
 		return r
 
 	def is_logged_in(self, force=False):
@@ -72,7 +75,7 @@ class FurAffinity:
 
 	def login(self, username, password):
 		"""
-		Log a user into FA
+		Log a user in
 
 		Returns True on success, False on failure
 		"""
@@ -90,7 +93,7 @@ class FurAffinity:
 
 	def logout(self):
 		"""
-		Log out of FA
+		Log out
 
 		Has no return value, alas.
 		"""
@@ -108,7 +111,7 @@ class FurAffinity:
 			self.rating   = rating
 
 		def __repr__(self):
-			return "(%d) '%s' thn %s act %s\n\t%s\n\t%s" % (self.sid, self.title, self.thumb, self.full, self.keywords, self.rating)
+			return "(%d) '%s' thn %s act %s keywords [%s] rating [%s]" % (self.sid, self.title, self.thumb, self.full, self.keywords, self.rating)
 
 	def get_submission_list(self, user=None, zone='gallery', page=1, perpage=60, limit=1):
 		"""
@@ -156,7 +159,7 @@ class FurAffinity:
 				# parse the submission itself
 				fullimg_url = html_unescape("http:" + download_re.search(s.content).group(1))
 				title       = html_unescape(title_re.search(s.content).group(1))
-				keywords    = html_unescape(keyword_re.findall(s.content))
+				keywords    = [html_unescape(x) for x in keyword_re.findall(s.content)]
 				rating      = html_unescape(rating_re.search(s.content).group(1))
 
 				# create submission object and append to our little list

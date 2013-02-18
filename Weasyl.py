@@ -17,7 +17,7 @@ class Weasyl:
 		"""
 		self.session = requests.Session()
 		if useragent is None:
-			self.session.headers.update({'User-Agent': 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'})
+			self.session.headers.update({'User-Agent': 'Libfurator/0.1 (http://www.bitbucket.org/philpem/libfurator)'})
 		else:
 			self.session.headers.update({'User-Agent': useragent})
 
