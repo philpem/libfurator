@@ -5,21 +5,28 @@ Powered by Requests - Fueled by Caffeine - Driven by Furries
 """
 
 import pickle, requests, re
-
-FA_URL = "https://www.furaffinity.net"
+from utils import html_unescape
 
 class FurAffinity:
-	def __init__(self, useragent=None):
+	FA_URL = "https://www.furaffinity.net"
+
+	def __init__(self, useragent=None, save_cookies=True):
 		"""
 		Default constructor
 
 		useragent --> User Agent (optional, defaults to IE5.5)
+		pickling  --> True to enable caching of cookies
 		"""
 		# load cookies if they're present
-		try:
-			self.cookiejar = pickle.load(open("cookies.p", "rb"))
-		except:
-			self.cookiejar = dict()
+		if save_cookies:
+			try:
+				self.cookiejar = pickle.load(open("furaffinity_cookies.p", "rb"))
+			except:
+				self.cookiejar = dict()
+			self.save_cookies = True
+		else:
+			self.save_cookies = False
+			self.cookiejar = False
 
 		if useragent is not None:
 			self.useragent = 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'
@@ -31,7 +38,19 @@ class FurAffinity:
 
 	def __del__(self):
 		# save cookies
-		pickle.dump(self.cookiejar, open("cookies.p", "wb"))
+		if self.save_cookies:
+			pickle.dump(self.cookiejar, open("cookies.p", "wb"))
+
+	def __request(self, url, data=None):
+		# TODO - Add rate limiting here
+		r = requests.get(
+				self.FA_URL + url,
+				cookies=self.cookiejar,
+				data=data,
+				headers={'User-Agent': self.useragent}
+				)
+		self.cookiejar.update(r.cookies)
+		return r
 
 	def is_logged_in(self, force=False):
 		"""
@@ -40,8 +59,7 @@ class FurAffinity:
 		if not force:
 			return self.__logged_in
 		else:
-			r = requests.get(FA_URL, cookies=self.cookiejar)
-			self.cookiejar.update(r.cookies)
+			r = self.__request('/')
 			res = re.search(r'<li class="noblock"><a href="/register/">Register</a> | <a href="https://www.furaffinity.net/login/">Log in</a></li>', r.content)
 			if res is None:
 				# Matched the login banner, we're logged out ;(
@@ -62,8 +80,7 @@ class FurAffinity:
 			raise ValueError  # FIXME - throw something better
 
 		parms = {'action':'login', 'retard_protection':1, 'name':username, 'pass':password}
-		r = requests.get(FA_URL + "/login", data=parms)
-		self.cookiejar.update(r.cookies)
+		r = self.__request('/login', data=parms)
 		if r.content.find("You have typed in an erroneous username or password") != -1:
 			return False
 		else:
@@ -77,9 +94,7 @@ class FurAffinity:
 
 		Has no return value, alas.
 		"""
-		r = requests.get(FA_URL + "/logout", cookies=self.cookiejar)
-		self.cookiejar.update(r.cookies)
-		print "logout cookiejar", r.cookies
+		r = self.__request('/logout')
 		self.__logged_in = False
 		self.__username = None
 
@@ -128,20 +143,23 @@ class FurAffinity:
 
 		pagenum = page
 		while True:
-			r = requests.get("%s/gallery/%s/%d/" % (FA_URL, user, pagenum), data={'perpage':perpage})
+			# Gallery url format: gallery/{username}/{pagenumber}
+			r = self.__request('/gallery/%s/%d/' % (user, pagenum), data={'perpage':perpage})
 			for i in re.findall(r'<b id="sid_([0-9]*)" class="r-[a-z]* t-image"><u><s><a href="/view/[0-9]*/"><img alt="" src="([^"]*)"/>', r.content):
+				# get submission ID and thumbnail URL
 				s_id = int(i[0])
 				thn_url = "http:" + i[1]
 
 				# request the submission itself
-				s = requests.get('%s/full/%s' % (FA_URL, i[0]))
+				s = self.__request('/full/%s' % (i[0],))
 
 				# parse the submission itself
-				fullimg_url = "http:" + download_re.search(s.content).group(1) # TODO: HTML unescape
-				title       = title_re.search(s.content).group(1)              # TODO: HTML Unescape
-				keywords    = keyword_re.findall(s.content)                    # TODO: HTML unescape
-				rating      = rating_re.search(s.content).group(1)             # TODO: HTML unescape
+				fullimg_url = html_unescape("http:" + download_re.search(s.content).group(1))
+				title       = html_unescape(title_re.search(s.content).group(1))
+				keywords    = html_unescape(keyword_re.findall(s.content))
+				rating      = html_unescape(rating_re.search(s.content).group(1))
 
+				# create submission object and append to our little list
 				sub = self.submission(sid=s_id, thumb=thn_url, full=fullimg_url, title=title, keywords=keywords, rating=rating)
 				ids.append(sub)
 
