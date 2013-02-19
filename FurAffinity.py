@@ -102,16 +102,17 @@ class FurAffinity:
 		self.__username = None
 
 	class submission:
-		def __init__(self, sid, thumb, full, title, keywords, rating):
+		def __init__(self, sid, thumb, full, title, description, keywords, rating):
 			self.sid      = sid
 			self.thumb    = thumb
 			self.full     = full
 			self.title    = title
 			self.keywords = keywords
 			self.rating   = rating
+			self.description = description
 
 		def __repr__(self):
-			return "(%d) '%s' thn %s act %s keywords [%s] rating [%s]" % (self.sid, self.title, self.thumb, self.full, self.keywords, self.rating)
+			return "(%d) '%s' thn %s act %s keywords [%s] rating [%s]\n%s" % (self.sid, self.title, self.thumb, self.full, self.keywords, self.rating, self.description)
 
 	def get_submission_list(self, user=None, zone='gallery', page=1, perpage=60, limit=1):
 		"""
@@ -140,9 +141,11 @@ class FurAffinity:
 			n = -1
 
 		download_re = re.compile(r'<a href="([^"]*)"> Download </a>')
-		title_re = re.compile(r'<b>([^<]*)</b> - by ')
-		keyword_re = re.compile(r'<a href="/search/@keywords ([^"]*)">')
 		rating_re = re.compile(r'<img alt="[^ ]* rating" src="/img/labels/([^\.]*?)\.gif" />')
+
+		title_re = re.compile(r'<textarea name="keywords" id="keywords" rows="3" cols="85" class="textarea">(.*?)</textarea>', re.DOTALL)
+		description_re = re.compile(r'<textarea id="JSMessage" name="message" rows="6" cols="85" class="textarea">(.*?)</textarea>', re.DOTALL)
+		keywords_re = re.compile(r'<textarea name="keywords" id="keywords" rows="3" cols="85" class="textarea">(.*?)</textarea>', re.DOTALL)
 
 		pagenum = page
 		while True:
@@ -156,14 +159,18 @@ class FurAffinity:
 				# request the submission itself
 				s = self.__request('/full/%s' % (i[0],))
 
-				# parse the submission itself
+				# parse the submission page to get the 'full' image url
 				fullimg_url = html_unescape("http:" + download_re.search(s.content).group(1))
-				title       = html_unescape(title_re.search(s.content).group(1))
-				keywords    = [html_unescape(x) for x in keyword_re.findall(s.content)]
 				rating      = html_unescape(rating_re.search(s.content).group(1))
 
-				# create submission object and append to our little list
-				sub = self.submission(sid=s_id, thumb=thn_url, full=fullimg_url, title=title, keywords=keywords, rating=rating)
+				# grab the description with BBcode in place (this requires a third request!)
+				s = self.__request('/controls/submissions/changeinfo/%s/' % (i[0],))
+				title       = html_unescape(title_re.search(s.content).group(1))
+				description = html_unescape(description_re.search(s.content).group(1))
+				keywords    = [x.strip() for x in html_unescape(keywords_re.search(s.content).group(1)).split(' ')]
+
+				# create a submission object and append it to our little list
+				sub = self.submission(sid=s_id, thumb=thn_url, full=fullimg_url, title=title, description=description, keywords=keywords, rating=rating)
 				ids.append(sub)
 
 			n = n - 1
