@@ -64,7 +64,7 @@ class FurAffinity:
 		else:
 			r = self.__request('/')
 			res = re.search(r'<li class="noblock"><a href="/register/">Register</a> | <a href="https://www.furaffinity.net/login/">Log in</a></li>', r.content)
-			if res is None:
+			if res is not None:
 				# Matched the login banner, we're logged out ;(
 				self.__logged_in = False
 				return False
