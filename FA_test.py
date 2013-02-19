@@ -12,6 +12,8 @@ if __name__ == '__main__':
 	if not fa.is_logged_in():
 		print "logging in --> ", fa.login(creds[0], creds[2])
 		print "I HAZ LOG IN?  ", fa.is_logged_in()
+	else:
+		print "I'm already logged in!"
 
 	# turn off safe for work
 	if 'sfw' in fa.session.cookies:
