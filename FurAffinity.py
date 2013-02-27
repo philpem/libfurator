@@ -109,8 +109,9 @@ class FurAffinity:
 		self.__username = None
 
 	class submission:
-		def __init__(self, sid, thumb, full, title, description, keywords, rating):
+		def __init__(self, sid, stype, thumb, full, title, description, keywords, rating):
 			self.sid      = sid
+			self.stype    = stype
 			self.thumb    = thumb
 			self.full     = full
 			self.title    = title
@@ -147,7 +148,7 @@ class FurAffinity:
 		else:
 			n = -1
 
-		download_re = re.compile(r'<a href="([^"]*)"> Download </a>')
+		download_re = re.compile(r'<a href="([^"]*)"> Download')
 		rating_re = re.compile(r'<img alt="[^ ]* rating" src="/img/labels/([^\.]*?)\.gif" />')
 
 		title_re = re.compile(r'<textarea name="keywords" id="keywords" rows="3" cols="85" class="textarea">(.*?)</textarea>', re.DOTALL)
@@ -157,29 +158,41 @@ class FurAffinity:
 		pagenum = page
 		while True:
 			# Gallery url format: gallery/{username}/{pagenumber}
-			r = self.__request('/gallery/%s/%d/' % (user, pagenum), data={'perpage':perpage})
-			for i in re.findall(r'<b id="sid_([0-9]*)" class="r-[a-z]* t-image"><u><s><a href="/view/[0-9]*/"><img alt="" src="([^"]*)"/>', r.content):
+			r = self.__request('/gallery/%s/%d/' % (user, pagenum), data={'perpage':perpage, 'go':'Update'})
+			for i in re.findall(r'<b id="sid_([0-9]*)" class="r-[a-z]* t-([a-z]*)"><u><s><a href="/view/[0-9]*/"><img alt="" src="([^"]*)"/>', r.content):
 				# get submission ID and thumbnail URL
 				s_id = int(i[0])
-				thn_url = "http:" + i[1]
+				s_type = i[1]
+				thn_url = "http:" + i[2]
 
 				# request the submission itself
 				s = self.__request('/full/%s' % (i[0],))
 
 				# parse the submission page to get the 'full' image url
-				fullimg_url = html_unescape("http:" + download_re.search(s.content).group(1))
+				print "SID %d has SType %s" % (s_id, s_type)
+				if s_type == 'image' or s_type == 'flash':
+					fullimg_url = html_unescape("http:" + download_re.search(s.content).group(1))
+				else:
+					fullimg_url = None
 				rating      = html_unescape(rating_re.search(s.content).group(1))
 
-				# grab the description with BBcode in place (this requires a third request!)
-				s = self.__request('/controls/submissions/changeinfo/%s/' % (i[0],))
-				title       = html_unescape(title_re.search(s.content).group(1))
-				description = html_unescape(description_re.search(s.content).group(1))
-				keywords    = [x.strip() for x in html_unescape(keywords_re.search(s.content).group(1)).split(' ')]
+				# grab the description with BBcode in place (this requires a third request and edit access!)
+				if user == self.__username:
+					s = self.__request('/controls/submissions/changeinfo/%s/' % (i[0],))
+					title       = html_unescape(title_re.search(s.content).group(1))
+					description = html_unescape(description_re.search(s.content).group(1))
+					keywords    = [x.strip() for x in html_unescape(keywords_re.search(s.content).group(1)).split(' ')]
+				else:
+					# FIXME TODO - try and decode html?
+					title = None
+					description = None
+					keywords = []
 
 				# create a submission object and append it to our little list
-				sub = self.submission(sid=s_id, thumb=thn_url, full=fullimg_url, title=title, description=description, keywords=keywords, rating=rating)
+				sub = self.submission(sid=s_id, stype=s_type, thumb=thn_url, full=fullimg_url, title=title, description=description, keywords=keywords, rating=rating)
 				ids.append(sub)
 
+			print "n=%d" % n
 			n = n - 1
 			pagenum = pagenum + 1
 			if (n <= 0 and limit is not None) or len(t_ids) == 0:
