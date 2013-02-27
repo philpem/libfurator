@@ -109,6 +109,17 @@ class FurAffinity:
 		self.__username = None
 
 	class submission:
+		"""
+		Attributes:
+			sid			Submission ID
+			stype		Submission type -- image, flash, text or audio
+			title		Submission title
+			description	Submission description
+			rating		Content rating -- general, mature, adult
+			keywords	Keywords (list of strings)
+			thumb		Thumbnail image URL
+			full		Full submission (e.g. image, SWF file) download URL
+		"""
 		def __init__(self, sid, stype, thumb, full, title, description, keywords, rating):
 			self.sid      = sid
 			self.stype    = stype
@@ -170,10 +181,8 @@ class FurAffinity:
 
 				# parse the submission page to get the 'full' image url
 				print "SID %d has SType %s" % (s_id, s_type)
-				if s_type == 'image' or s_type == 'flash':
-					fullimg_url = html_unescape("http:" + download_re.search(s.content).group(1))
-				else:
-					fullimg_url = None
+				# valid types: image, flash, text, audio
+				fullimg_url = html_unescape("http:" + download_re.search(s.content).group(1))
 				rating      = html_unescape(rating_re.search(s.content).group(1))
 
 				# grab the description with BBcode in place (this requires a third request and edit access!)
