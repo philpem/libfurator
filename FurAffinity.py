@@ -8,7 +8,8 @@ import pickle, requests, re
 from utils import html_unescape
 
 class FurAffinity:
-	FA_URL = "https://www.furaffinity.net"
+	FA_URL = "http://www.furaffinity.net"
+	FA_SECURE_URL = "http://www.furaffinity.net"
 
 	def __init__(self, useragent=None, save_cookies=True):
 		"""
@@ -46,13 +47,18 @@ class FurAffinity:
 
 	def __request(self, url, data=None, files=None):
 		# TODO - Add rate limiting here
+		if url == '/login':
+			host = self.FA_SECURE_URL
+		else:
+			host = self.FA_URL
+
 		if data is None:
-			r = self.session.get(self.FA_URL + url)
+			r = self.session.get(host + url)
 		else:
 			if files is None:
-				r = self.session.post(self.FA_URL + url, data=data)
+				r = self.session.post(host + url, data=data)
 			else:
-				r = self.session.post(self.FA_URL + url, data=data, files=files)
+				r = self.session.post(host + url, data=data, files=files)
 		return r
 
 	def is_logged_in(self, force=False):
