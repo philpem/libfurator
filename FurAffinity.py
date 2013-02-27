@@ -77,6 +77,7 @@ class FurAffinity:
 			else:
 				# No login banner match, we're logged in!
 				self.__logged_in = True
+				self.__username = re.search(r'<li><a id="my-username" href="/user/([^/]*)/">', r.content).group(1)
 				return True
 
 	def login(self, username, password):
