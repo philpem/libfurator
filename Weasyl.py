@@ -19,19 +19,23 @@ class Weasyl:
 		"""
 		Default constructor
 
-		useragent --> User Agent (optional, defaults to IE5.5)
+		useragent --> User Agent (optional -- intended to allow Weasyl admins to identify robots)
 		"""
+
+		# Initialise Requests and set a sensible user-agent so Weasyl admins can track Libfurator usage
 		self.session = requests.Session()
+
+		# 
 		if useragent is None:
 			self.session.headers.update({'User-Agent': 'Libfurator/0.1 (http://www.bitbucket.org/philpem/libfurator)'})
 		else:
 			self.session.headers.update({'User-Agent': useragent})
 
-		# forcibly update logged-in status
+		# forcibly update logged-in status (probably "logged out" at this point)
 		self.is_logged_in(force=True)
 
 	def __request(self, url, data=None, files=None):
-		# TODO - Add rate limiting here
+		# TODO - If we want to add rate limiting, it should probably go here
 		if data is None:
 			r = self.session.get(self.WEASYL_URL + url)
 		else:
@@ -65,29 +69,7 @@ class Weasyl:
 			else:
 				# No login banner match, we're logged in!
 				self.__logged_in = True
-				self.signout_token = re.search(r'<a href="/signout\?token=([^"]*)">', r.content).group(1)
-				print "signout token is ",self.signout_token
 				return True
-
-	def login(self, username, password):
-		"""
-		Log a user in
-
-		Returns True on success, False on failure
-		"""
-		if self.__logged_in:
-			# Log out before trying to log in again
-			self.logout()
-
-		parms = {'username': username, 'password': password}
-		r = self.__request('/signin', data=parms)
-		if r.content.find("<strong>Whoops!</strong> The login information you entered was not correct.") != -1:
-			return False
-		else:
-			self.__logged_in = True
-			self.__username = username
-			self.is_logged_in(force=True)
-			return True
 
 	def login(self, api_key):
 		"""
@@ -106,9 +88,8 @@ class Weasyl:
 			return True
 		else:
 			# Login failed
-			self.session.headers.update({'X-Weasyl-API-Key': None})
+			del self.session.headers['X-Weasyl-API-Key']
 			return False
-
 
 	def logout(self):
 		"""
