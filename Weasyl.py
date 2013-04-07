@@ -15,7 +15,7 @@ import pickle, requests, re, sys, os
 class Weasyl:
 	WEASYL_URL = "https://www.weasyl.com"
 
-	def __init__(self, useragent=None):
+	def __init__(self, useragent=None, apikey=None):
 		"""
 		Default constructor
 
@@ -31,8 +31,12 @@ class Weasyl:
 		else:
 			self.session.headers.update({'User-Agent': useragent})
 
-		# forcibly update logged-in status (probably "logged out" at this point)
-		self.is_logged_in(force=True)
+		# if an API key has been specified, use it to log in
+		if apikey is not None:
+			self.login(apikey)
+		else:
+			self.__logged_in = False
+
 
 	def __request(self, url, data=None, files=None):
 		# TODO - If we want to add rate limiting, it should probably go here
@@ -45,6 +49,7 @@ class Weasyl:
 				r = self.session.post(self.WEASYL_URL + url, data=data, files=files)
 		return r
 
+
 	def __decode_options(self, data):
 		listdata = dict()
 		for i in re.finditer(r'<option value="(.*?)".*?>(.*?)</option>', data):
@@ -52,6 +57,7 @@ class Weasyl:
 				continue
 			listdata[int(i.group(1))] = i.group(2)
 		return listdata
+
 
 	def is_logged_in(self, force=False):
 		"""
@@ -61,15 +67,19 @@ class Weasyl:
 			return self.__logged_in
 		else:
 			r = self.__request('/')
-			res = r.content.find('<h3 id="header-guest">')
-			if res != -1:
-				# Matched the login banner, we're logged out ;(
-				self.__logged_in = False
-				return False
-			else:
+
+			with open("dump.txt", "wt") as f:
+				f.write(r.content.encode('utf8'))
+
+			if r.content.find('<div id="header-user">') != -1:
 				# No login banner match, we're logged in!
 				self.__logged_in = True
 				return True
+			else:
+				# Matched the login banner, we're logged out ;(
+				self.__logged_in = False
+				return False
+
 
 	def login(self, api_key):
 		"""
@@ -91,18 +101,16 @@ class Weasyl:
 			del self.session.headers['X-Weasyl-API-Key']
 			return False
 
+
 	def logout(self):
 		"""
 		Log out
 
 		Has no return value, alas.
 		"""
-		if not self.signout_token and 'X-Weasyl-API-Key' not in self.session.headers:
-			raise ValueError # need a signout token! - FIXME throw something better
-		r = self.__request('/signout?token=%s' % self.signout_token)
 		del self.session.headers['X-Weasyl-API-Key']
 		self.__logged_in = False
-		self.__username = None
+
 
 	def submit_prepare(self, submittype):
 		"""
@@ -120,6 +128,7 @@ class Weasyl:
 		ratings = self.__decode_options(re.search(r'<select name="rating" class="input" id="submissionrating">(.*?)</select>', resp.content, re.DOTALL).group(1))
 
 		return token, categories, folders, ratings
+
 
 	def submit_visual(self, token, submissionfilename, submissiondata, title, description, category, folder, rating, tags, critique = False, friendsonly = False):
 		# TODO - thumbnail file

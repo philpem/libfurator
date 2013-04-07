@@ -11,7 +11,7 @@ if __name__ == '__main__':
 	x = Weasyl()
 
 	# Use the API key to log in
-	print "login[apikey]: ", x.login(creds[0])
+	print "login[apikey]: ", x.login(creds)
 
 	if not x.is_logged_in():
 		print "ERROR LOGGING IN :("
