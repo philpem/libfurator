@@ -4,6 +4,12 @@ Weasyl interface class for Python
 Powered by Requests - Fueled by Caffeine - Driven by Furries
 """
 
+##
+# TODO
+##
+# - Submit music, SWF files, textual content
+# - Create/list folders
+
 import pickle, requests, re, sys, os
 
 class Weasyl:
@@ -70,12 +76,11 @@ class Weasyl:
 		Returns True on success, False on failure
 		"""
 		if self.__logged_in:
-			raise ValueError  # FIXME - throw something better
+			# Log out before trying to log in again
+			self.logout()
 
 		parms = {'username': username, 'password': password}
 		r = self.__request('/signin', data=parms)
-		with open("log.login", "wt") as f:
-			f.write(r.content)
 		if r.content.find("<strong>Whoops!</strong> The login information you entered was not correct.") != -1:
 			return False
 		else:
@@ -84,15 +89,37 @@ class Weasyl:
 			self.is_logged_in(force=True)
 			return True
 
+	def login(self, api_key):
+		"""
+		Log in using an API key
+
+		Returns True on success, False on failure
+		"""
+		if self.__logged_in:
+			# Log out before trying to log in again
+			self.logout()
+
+		# Save API key and check that we've successfully logged in
+		self.session.headers.update({'X-Weasyl-API-Key': api_key})
+		if self.is_logged_in(force=True):
+			# Login succeeded
+			return True
+		else:
+			# Login failed
+			self.session.headers.update({'X-Weasyl-API-Key': None})
+			return False
+
+
 	def logout(self):
 		"""
 		Log out
 
 		Has no return value, alas.
 		"""
-		if not self.signout_token:
+		if not self.signout_token and 'X-Weasyl-API-Key' not in self.session.headers:
 			raise ValueError # need a signout token! - FIXME throw something better
 		r = self.__request('/signout?token=%s' % self.signout_token)
+		del self.session.headers['X-Weasyl-API-Key']
 		self.__logged_in = False
 		self.__username = None
 
@@ -135,7 +162,7 @@ class Weasyl:
 		upload_resp = self.__request('/submit/visual', data=fields, files=files)
 
 		# Upload page sends us to the manage thumbnail page with the submission ID attached
-		submit_id = re.search(r'http://www.weasyl.com/manage/thumbnail\?submitid=([0-9]*)', upload_resp.headers['location']).group(1)
+		submit_id = re.search(r'https?://www.weasyl.com/manage/thumbnail\?submitid=([0-9]*)', upload_resp.headers['location']).group(1)
 		print "Submission ID %s" % submit_id
 
 		# thumbnail submission (default mode)

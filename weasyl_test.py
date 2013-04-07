@@ -1,14 +1,21 @@
+import os,sys
 from Weasyl import Weasyl
 
 if __name__ == '__main__':
 	try:
 		creds = os.getenv("WEASYL_CREDENTIALS").partition(':')
 	except:
-		print "Set WEASYL_CREDENTIALS to user:pass and try again."
+		print "Set WEASYL_CREDENTIALS to user:pass or your API key and try again."
 		sys.exit(1)
 
 	x = Weasyl()
-	print "login: ", x.login(creds[0], creds[2])
+
+	# If creds doesn't have a colon in it, then it's an API key.
+	if creds[1] != ':':
+		print "login[apikey]: ", x.login(creds[0])
+	else:
+		print "login[usrpwd]: ", x.login(creds[0], creds[2])
+
 	if not x.is_logged_in():
 		print "ERROR LOGGING IN :("
 		sys.exit(1)
